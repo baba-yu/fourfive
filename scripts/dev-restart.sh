@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop any running codev dev stacks and start exactly one fresh (detached).
+# Stop any running FourFive dev stacks and start exactly one fresh (detached).
 cd "$(dirname "$0")/.." || exit 1
 bash scripts/dev-stop.sh >/dev/null 2>&1
 sleep 2

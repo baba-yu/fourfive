@@ -40,5 +40,5 @@ echo "=== ollama daemon log tail ==="
 tail -20 /tmp/ollama.log 2>/dev/null || echo "(no /tmp/ollama.log)"
 
 echo
-echo "=== codev dev log tail ==="
+echo "=== FourFive dev log tail ==="
 tail -12 /tmp/codev-dev.log 2>/dev/null || echo "(no /tmp/codev-dev.log)"

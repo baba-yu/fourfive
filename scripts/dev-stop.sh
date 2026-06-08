@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop ALL codev dev processes (handles duplicate/orphaned stacks). Run as a
+# Stop ALL FourFive dev processes (handles duplicate/orphaned stacks). Run as a
 # file (bash scripts/dev-stop.sh) so its own cmdline never matches the pkill
 # patterns below — avoids self-termination.
 set +e

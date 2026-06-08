@@ -31,7 +31,7 @@ export function buildBlueprintMessages(
   current: Blueprint | null,
 ): ChatMessage[] {
   const system = [
-    "You are codev's design extractor. From the conversation, infer the app being designed and output ONLY a single JSON object — no prose, no code fences.",
+    "You are FourFive's design extractor. From the conversation, infer the app being designed and output ONLY a single JSON object — no prose, no code fences.",
     SCHEMA_HINT,
     'If there is not yet enough information to design anything, output exactly: null',
     'Match the language of the conversation for human-facing strings (labels, definitions).',

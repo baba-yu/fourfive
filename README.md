@@ -1,7 +1,12 @@
-# codev
+# FourFive
 
 A local design tool: start from chat, design and visualize a throwaway "temporary
 app", and export everything-but-the-UI as a Markdown blueprint.
+
+> **Why "FourFive"?** After the 四畳半 (*yojōhan*) — a 4.5-tatami room. In Japan
+> it's the small, spare space you start out from, where you tinker and experiment
+> your way to something out of almost nothing. That's the stage FourFive is built
+> for: shaping an app from nothing but a chat.
 
 > **Status: MVP complete (Phases 1–5) + local-LLM SSE streaming**
 > Chat produces a structured blueprint and renders it in the right pane

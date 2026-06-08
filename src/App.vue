@@ -18,7 +18,7 @@ onMounted(() => store.init())
 <template>
   <div class="app">
     <header class="topbar">
-      <div class="brand">codev</div>
+      <div class="brand">FourFive</div>
       <div class="topbar__meta">
         <button
           v-if="store.provider === 'ollama'"

@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// codev's own metadata lives in a single SQLite file inside the workspace dir.
+// FourFive's own metadata lives in a single SQLite file inside the workspace dir.
 // Per-app design artifacts (blueprint.json, erd.mmd, ...) will live in
 // codev-workspace/apps/<slug>/ folders (added in later phases).
 export const WORKSPACE_DIR = resolve(process.cwd(), 'codev-workspace')

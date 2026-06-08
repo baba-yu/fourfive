@@ -39,7 +39,7 @@ const bp = computed(() => store.blueprint)
         <p class="temp__ph-title">{{ active }}</p>
         <p class="temp__ph-desc">
           "{{ active }}" will appear here.<br />
-          codev generates it automatically once the spec takes shape in chat.
+          FourFive generates it automatically once the spec takes shape in chat.
         </p>
       </div>
       <template v-else>

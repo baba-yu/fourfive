@@ -1,4 +1,4 @@
-// The structured design artifact codev builds up from the chat. Plain types
+// The structured design artifact FourFive builds up from the chat. Plain types
 // shared by frontend and server; the server validates incoming data against a
 // matching zod schema (server/blueprint-schema.ts) before trusting it.
 

@@ -69,7 +69,7 @@ watch(
       </p>
 
       <div v-for="m in store.messages" :key="m.id" class="msg" :class="`msg--${m.role}`">
-        <div class="msg__role">{{ m.role === 'user' ? 'You' : 'codev' }}</div>
+        <div class="msg__role">{{ m.role === 'user' ? 'You' : 'FourFive' }}</div>
         <div v-if="store.thinkingById[m.id]" class="think-box">
           <button class="think-box__head" @click="toggleThinking(m.id)">
             💭 Thinking <span class="think-box__chev">{{ openThinking[m.id] ? '▲' : '▼' }}</span>
@@ -80,7 +80,7 @@ watch(
       </div>
 
       <div v-if="store.streamingMsg" class="msg msg--assistant">
-        <div class="msg__role">codev</div>
+        <div class="msg__role">FourFive</div>
         <div v-if="store.streamingMsg?.thinking" class="think-box">
           <button class="think-box__head" @click="toggleStreamThinking">
             💭 Thinking{{ store.streamingMsg?.content ? '' : '…' }}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch codev dev servers (Hono + Vite) detached, wait for both ports, report.
+# Launch FourFive dev servers (Hono + Vite) detached, wait for both ports, report.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 export COREPACK_ENABLE_DOWNLOAD_PROMPT=0

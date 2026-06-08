@@ -13,7 +13,7 @@ fi
 echo 'typecheck OK'
 
 echo
-echo '=== restart codev (reload server) ==='
+echo '=== restart FourFive (reload server) ==='
 bash scripts/dev-restart.sh | grep -E 'BOTH_UP|provider|stacks'
 
 echo

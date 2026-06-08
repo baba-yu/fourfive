@@ -1,6 +1,6 @@
-# codev × local LLM (Ollama) setup
+# FourFive × local LLM (Ollama) setup
 
-codev abstracts the LLM provider (`server/llm/`); `.env` switches between `mock`
+FourFive abstracts the LLM provider (`server/llm/`); `.env` switches between `mock`
 (default, offline), `ollama`, and `claude`. This guide covers connecting a local
 LLM via **Ollama**.
 
@@ -8,7 +8,7 @@ LLM via **Ollama**.
 
 ## Prerequisites
 
-- codev running inside WSL (WSL-native; see [../../README.md](../../README.md)).
+- FourFive running inside WSL (WSL-native; see [../../README.md](../../README.md)).
 - Ollama installed in WSL.
   - Check: `command -v ollama && ollama --version`
   - If missing (**needs sudo — run it yourself**):
@@ -36,7 +36,7 @@ ollama pull qwen2.5:14b   # e.g. — qwen is strong at Japanese + structured JSO
 ollama list               # confirm installed models and exact tags
 ```
 
-### 3. Configure codev (`.env`)
+### 3. Configure FourFive (`.env`)
 ```bash
 cp .env.example .env      # or just edit if it already exists
 ```
@@ -46,7 +46,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:14b   # match the exact tag from `ollama list`
 ```
 
-### 4. Restart codev (load `.env`)
+### 4. Restart FourFive (load `.env`)
 `.env` is read at server startup and the provider is cached in-process, so
 **always restart after changing it**:
 ```bash
@@ -92,7 +92,7 @@ successfully generated**.
 
 ## Behavior notes (measured)
 
-codev calls the LLM **twice per message** — ① the human-readable chat reply
+FourFive calls the LLM **twice per message** — ① the human-readable chat reply
 (streamed) ② `proposeBlueprint` (structured JSON). Latency ≈ model size × output tokens.
 
 | observed (qwen2.5:7b / RTX 5090, q4)   | value |
@@ -118,7 +118,7 @@ codev calls the LLM **twice per message** — ① the human-readable chat reply
 ## Hardening (optional, not implemented)
 
 Ollama can take a **JSON schema** as `format` (structured outputs). Deriving a JSON
-schema from codev's zod schema (`server/blueprint-schema.ts`) and passing it to
+schema from FourFive's zod schema (`server/blueprint-schema.ts`) and passing it to
 `proposeBlueprint` (`server/llm/ollama.ts`) would make even small models almost
 always schema-valid. Ask if you want it.
 
