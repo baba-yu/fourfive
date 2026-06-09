@@ -13,6 +13,7 @@
     "dev:web": "vite",
     "build": "vue-tsc --noEmit -p tsconfig.json && vite build",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
+    "test": "vitest run",
     "start:server": "tsx server/index.ts",
     "smoke": "node scripts/smoke.mjs",
     "preview": "vite preview --port 4173"
@@ -34,9 +35,14 @@
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
+    "vitest": "^4.1.8",
     "vue-tsc": "^2.2.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild", "vue-demi"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "vue-demi"
+    ]
   }
 }
