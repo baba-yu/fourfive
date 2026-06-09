@@ -850,3 +850,55 @@ body {
   justify-content: space-between;
   gap: 8px;
 }
+
+/* --- Dependency strip + read-only dependency sections --- */
+.temp__deps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.temp__deps-label {
+  color: var(--text-dim);
+}
+.dep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.dep-chip__bump {
+  border: none;
+  background: var(--accent);
+  color: #000;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.depsec {
+  margin-top: 18px;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  opacity: 0.8;
+}
+.depsec__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.depsec__name {
+  font-weight: 600;
+}
+.depsec__ns {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: auto;
+}

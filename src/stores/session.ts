@@ -165,12 +165,22 @@ export const useSessionStore = defineStore('session', () => {
 
   /** Move a dependency's pin to its latest version and refresh the merged view. */
   async function bumpDependency(dep: DependencyInfo) {
-    const appId = current.value?.app_id
-    if (!appId || dep.current_version <= dep.pinned_version) return
-    await api.updateDependencyPin(appId, dep.app_id, dep.current_version)
-    const res = await api.getBlueprint(current.value!.id)
-    blueprint.value = res.blueprint
-    dependencies.value = res.dependencies
+    const cur = current.value
+    if (!cur?.app_id || dep.current_version <= dep.pinned_version) return
+    try {
+      await api.updateDependencyPin(cur.app_id, dep.app_id, dep.current_version)
+      const res = await api.getBlueprint(cur.id)
+      blueprint.value = res.blueprint
+      dependencies.value = res.dependencies
+    } catch (e) {
+      messages.value.push({
+        id: `err-${Date.now()}`,
+        session_id: cur.id,
+        role: 'assistant',
+        content: `⚠️ Failed to update dependency pin: ${(e as Error).message}`,
+        created_at: new Date().toISOString(),
+      })
+    }
   }
 
   async function openSession(s: Session) {

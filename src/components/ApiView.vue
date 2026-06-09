@@ -2,7 +2,7 @@
 import type { ApiEndpoint } from '../../shared/blueprint'
 import { useSessionStore } from '../stores/session'
 
-defineProps<{ apis: ApiEndpoint[] }>()
+defineProps<{ apis: ApiEndpoint[]; deps?: { name: string; slug: string; apis: ApiEndpoint[] }[] }>()
 const store = useSessionStore()
 </script>
 
@@ -24,5 +24,19 @@ const store = useSessionStore()
         <span v-for="u in a.related_ui" :key="u" class="chip">{{ u }}</span>
       </div>
     </div>
+    <section v-for="d in deps ?? []" :key="d.slug" class="depsec">
+      <div class="depsec__head">
+        <span class="depsec__name">{{ d.name }}</span>
+        <span class="badge2">read-only</span>
+        <span class="depsec__ns">namespace: {{ d.slug }}</span>
+      </div>
+      <div v-for="(a, i) in d.apis" :key="`${d.slug}-${a.method}-${a.path}-${i}`" class="api">
+        <div class="api__line">
+          <span class="api__method" :class="`api__method--${a.method.toLowerCase()}`">{{ a.method }}</span>
+          <span class="api__path">{{ a.path }}</span>
+        </div>
+        <p v-if="a.summary" class="api__summary">{{ a.summary }}</p>
+      </div>
+    </section>
   </div>
 </template>
