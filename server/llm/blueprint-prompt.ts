@@ -30,14 +30,20 @@ export function buildBlueprintMessages(
   history: ChatMessage[],
   current: Blueprint | null,
 ): ChatMessage[] {
+  // System-role entries (e.g. dependency context) must arrive as instructions,
+  // not as quoted transcript text, so split them out before building the convo.
+  const systemExtras = history.filter((m) => m.role === 'system').map((m) => m.content)
+  const turns = history.filter((m) => m.role !== 'system')
+
   const system = [
     "You are FourFive's design extractor. From the conversation, infer the app being designed and output ONLY a single JSON object — no prose, no code fences.",
     SCHEMA_HINT,
     'If there is not yet enough information to design anything, output exactly: null',
     'Match the language of the conversation for human-facing strings (labels, definitions).',
+    ...systemExtras,
   ].join('\n\n')
 
-  const convo = history.map((m) => `${m.role}: ${m.content}`).join('\n')
+  const convo = turns.map((m) => `${m.role}: ${m.content}`).join('\n')
   const currentStr = current
     ? `\n\nCurrent blueprint (refine it; keep prior detail unless contradicted):\n${JSON.stringify(current)}`
     : ''
