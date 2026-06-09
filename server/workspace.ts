@@ -189,9 +189,13 @@ export function createComposedApp(name: string, dependencyAppIds: string[]): { i
         | { current_version: number }
         | undefined
       if (!dep) throw new DependencyError(`unknown dependency app: ${depId}`)
+      if (dep.current_version < 1) {
+        throw new DependencyError(`app ${depId} has no saved blueprint to compose`)
+      }
       addDependency(db, id, depId, dep.current_version)
     }
   })()
+  // app.json is cosmetic metadata; the DB is authoritative — written outside the transaction on purpose.
   writeFileSync(join(dir, 'app.json'), JSON.stringify({ id, name, slug, created_at: ts }, null, 2))
   return { id, slug }
 }
@@ -199,7 +203,7 @@ export function createComposedApp(name: string, dependencyAppIds: string[]): { i
 /** Own blueprint plus each dependency's pinned blueprint, for the API and LLM context. */
 export function getBlueprintWithDependencies(sessionId: string): SessionBlueprintResponse {
   const app = getSessionApp(sessionId)
-  const blueprint = getLatestBlueprint(sessionId)
+  const blueprint = app ? readBlueprintVersion(app.slug, app.current_version) : null
   const dependencies = app
     ? getDependencies(db, app.id).map((d) => ({
         app_id: d.depends_on_app_id,

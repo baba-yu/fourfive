@@ -13,7 +13,8 @@ import { randomUUID } from 'node:crypto'
 import { db, nowIso, DEFAULT_SESSION_TITLE } from './db'
 import { getProvider } from './llm/provider'
 import { validateBlueprint } from './blueprint-schema'
-import { saveBlueprint, getLatestBlueprint, saveMarkdown, setSoftwareStack } from './workspace'
+import { saveBlueprint, getLatestBlueprint, saveMarkdown, setSoftwareStack, createComposedApp, getBlueprintWithDependencies } from './workspace'
+import { listComposableApps, updateDependencyPin, DependencyError } from './dependencies'
 import { renderBlueprintMarkdown } from './markdown'
 import type { ChatMessage, Message } from '../shared/types'
 
@@ -34,9 +35,33 @@ app.get('/api/sessions', (c) => {
 })
 
 app.post('/api/sessions', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { title?: string }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    title?: string
+    mode?: 'new' | 'compose'
+    name?: string
+    dependencies?: { app_id: string }[]
+  }
   const id = randomUUID()
   const ts = nowIso()
+
+  if (body.mode === 'compose') {
+    const name = body.name?.trim()
+    const deps = (body.dependencies ?? []).map((d) => d.app_id).filter(Boolean)
+    if (!name) return c.json({ error: 'name is required for compose' }, 400)
+    if (deps.length === 0) return c.json({ error: 'compose requires at least one dependency' }, 400)
+    let appRef: { id: string; slug: string }
+    try {
+      appRef = createComposedApp(name, deps)
+    } catch (err) {
+      if (err instanceof DependencyError) return c.json({ error: err.message }, 400)
+      throw err
+    }
+    db.prepare(
+      'INSERT INTO sessions (id, app_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(id, appRef.id, name, ts, ts)
+    return c.json(db.prepare('SELECT * FROM sessions WHERE id = ?').get(id), 201)
+  }
+
   const title = body.title?.trim() || DEFAULT_SESSION_TITLE
   db.prepare(
     'INSERT INTO sessions (id, app_id, title, created_at, updated_at) VALUES (?, NULL, ?, ?, ?)',
@@ -159,7 +184,23 @@ app.post('/api/sessions/:id/messages', async (c) => {
 })
 
 app.get('/api/sessions/:id/blueprint', (c) => {
-  return c.json(getLatestBlueprint(c.req.param('id')))
+  return c.json(getBlueprintWithDependencies(c.req.param('id')))
+})
+
+// --- apps & dependencies ---
+
+app.get('/api/apps', (c) => c.json(listComposableApps(db)))
+
+app.patch('/api/apps/:id/dependencies/:depId', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { version?: number }
+  if (typeof body.version !== 'number') return c.json({ error: 'version is required' }, 400)
+  try {
+    updateDependencyPin(db, c.req.param('id'), c.req.param('depId'), body.version)
+  } catch (err) {
+    if (err instanceof DependencyError) return c.json({ error: err.message }, 400)
+    throw err
+  }
+  return c.json({ ok: true })
 })
 
 app.get('/api/sessions/:id/usage', (c) => {

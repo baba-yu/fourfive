@@ -67,12 +67,77 @@ if (bp.entities.length < 1 || bp.terminology.length < 1 || bp.business_logic.len
   process.exit(1)
 }
 
-// GET blueprint endpoint should return the persisted copy.
+// GET blueprint endpoint should return the persisted copy (new composite shape).
 const fetched = await (await fetch(`${BASE}/api/sessions/${session.id}/blueprint`)).json()
-if (!fetched || fetched.app.name !== bp.app.name) {
+if (!fetched?.blueprint || fetched.blueprint.app.name !== bp.app.name) {
   console.error('SMOKE FAIL: GET /blueprint did not return the persisted blueprint')
   process.exit(1)
 }
-console.log('persisted:', fetched.app.name, 'OK')
+if (!Array.isArray(fetched.dependencies) || fetched.dependencies.length !== 0) {
+  console.error('SMOKE FAIL: plain app should have zero dependencies')
+  process.exit(1)
+}
+console.log('persisted:', fetched.blueprint.app.name, 'OK')
+
+// Phase 3: composition — list apps, compose a session, pin handling.
+const apps = await (await fetch(`${BASE}/api/apps`)).json()
+const target = apps.find((a) => a.name === bp.app.name)
+console.log('apps     :', apps.length, target ? `(found ${target.name} v${target.current_version})` : '(target missing)')
+if (!target || target.current_version < 1) {
+  console.error('SMOKE FAIL: /api/apps is missing the invoice app')
+  process.exit(1)
+}
+
+const composed = await postJson('/api/sessions', {
+  mode: 'compose',
+  name: 'Composite Smoke App',
+  dependencies: [{ app_id: target.id }],
+})
+if (!composed.app_id || composed.title !== 'Composite Smoke App') {
+  console.error('SMOKE FAIL: compose session missing app_id or title')
+  process.exit(1)
+}
+console.log('composed :', composed.id, '/', composed.title)
+
+const cbp = await (await fetch(`${BASE}/api/sessions/${composed.id}/blueprint`)).json()
+if (cbp.blueprint !== null || cbp.dependencies?.length !== 1) {
+  console.error('SMOKE FAIL: composed blueprint response shape', JSON.stringify(cbp)?.slice(0, 200))
+  process.exit(1)
+}
+const dep = cbp.dependencies[0]
+if (dep.name !== bp.app.name || dep.pinned_version !== target.current_version || !dep.blueprint) {
+  console.error('SMOKE FAIL: dependency info wrong', JSON.stringify(dep)?.slice(0, 200))
+  process.exit(1)
+}
+console.log('dep      :', dep.name, `pinned v${dep.pinned_version}`, 'OK')
+
+const pinOk = await fetch(`${BASE}/api/apps/${composed.app_id}/dependencies/${dep.app_id}`, {
+  method: 'PATCH',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ version: dep.pinned_version }),
+})
+if (!pinOk.ok) {
+  console.error('SMOKE FAIL: pin update to an existing version should succeed')
+  process.exit(1)
+}
+const pinBad = await fetch(`${BASE}/api/apps/${composed.app_id}/dependencies/${dep.app_id}`, {
+  method: 'PATCH',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ version: 999 }),
+})
+if (pinBad.status !== 400) {
+  console.error('SMOKE FAIL: pin update to a missing version should 400')
+  process.exit(1)
+}
+const badCompose = await fetch(`${BASE}/api/sessions`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ mode: 'compose', name: 'X', dependencies: [] }),
+})
+if (badCompose.status !== 400) {
+  console.error('SMOKE FAIL: compose with no dependencies should 400')
+  process.exit(1)
+}
+console.log('compose  : pin + validation OK')
 
 console.log('SMOKE OK')

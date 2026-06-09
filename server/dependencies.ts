@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import type { AppListItem } from '../shared/types'
 
 // App-to-app dependency rows (see docs/specs/2026-06-09-app-composition-design.md).
 // Every function takes an injected DB handle so unit tests can run against
@@ -8,15 +9,6 @@ type DB = Database.Database
 
 export class DependencyError extends Error {
   override name = 'DependencyError'
-}
-
-export interface ComposableApp {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  current_version: number
-  updated_at: string
 }
 
 export interface DependencyRow {
@@ -29,14 +21,14 @@ export interface DependencyRow {
 }
 
 /** Apps eligible as composition targets: at least one saved blueprint version. */
-export function listComposableApps(db: DB): ComposableApp[] {
+export function listComposableApps(db: DB): AppListItem[] {
   return db
     .prepare(
       `SELECT id, name, slug, description, current_version, updated_at
        FROM temporary_apps WHERE current_version >= 1
        ORDER BY updated_at DESC`,
     )
-    .all() as ComposableApp[]
+    .all() as AppListItem[]
 }
 
 export function getDependencies(db: DB, appId: string): DependencyRow[] {
