@@ -48,6 +48,7 @@ export const useSessionStore = defineStore('session', () => {
   const sending = ref(false)
   const provider = ref('…')
   const blueprint = ref<Blueprint | null>(null)
+  const usage = ref({ input: 0, output: 0, total: 0 })
 
   // LLM knobs (per message)
   const thinking = ref(loadBool('codev.thinking', false))
@@ -137,6 +138,15 @@ export const useSessionStore = defineStore('session', () => {
     sessions.value = await api.listSessions()
   }
 
+  async function refreshUsage() {
+    if (!current.value) return
+    try {
+      usage.value = await api.getUsage(current.value.id)
+    } catch {
+      usage.value = { input: 0, output: 0, total: 0 }
+    }
+  }
+
   async function newSession() {
     const s = await api.createSession()
     await refreshSessions()
@@ -149,6 +159,7 @@ export const useSessionStore = defineStore('session', () => {
     messages.value = await api.getMessages(s.id)
     blueprint.value = await api.getBlueprint(s.id)
     softwareStack.value = blueprint.value?.software_stack ?? ''
+    await refreshUsage()
   }
 
   async function send(content: string) {
@@ -212,6 +223,7 @@ export const useSessionStore = defineStore('session', () => {
       // Pick up server-side auto-naming (first blueprint names the session).
       const fresh = sessions.value.find((s) => s.id === sid)
       if (fresh && current.value) current.value.title = fresh.title
+      await refreshUsage()
     } catch (e) {
       messages.value.push({
         id: `err-${Date.now()}`,
@@ -297,5 +309,7 @@ export const useSessionStore = defineStore('session', () => {
     generateMarkdown,
     closeMarkdown,
     renameSession,
+    usage,
+    refreshUsage,
   }
 })

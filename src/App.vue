@@ -52,6 +52,13 @@ onMounted(() => store.init())
             @change="onMaxTokens"
           />
         </div>
+        <span
+          v-if="store.usage.total > 0"
+          class="badge"
+          :title="`input ${store.usage.input} / output ${store.usage.output} tokens`"
+        >
+          {{ store.usage.total }} tok
+        </span>
         <span class="badge">LLM: {{ store.provider }}</span>
       </div>
     </header>

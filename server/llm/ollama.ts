@@ -5,6 +5,9 @@ import { buildBlueprintMessages, extractJson } from './blueprint-prompt'
 
 interface OllamaChatResponse {
   message?: { content?: string; thinking?: string }
+  done?: boolean
+  prompt_eval_count?: number
+  eval_count?: number
 }
 
 // Talks to a local Ollama daemon (default http://localhost:11434).
@@ -24,7 +27,11 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
-  private async call(messages: ChatMessage[], json: boolean, opts: ChatOptions): Promise<string> {
+  private async call(
+    messages: ChatMessage[],
+    json: boolean,
+    opts: ChatOptions,
+  ): Promise<{ content: string; usage: { input: number; output: number } }> {
     const res = await fetch(`${this.base}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -35,12 +42,15 @@ export class OllamaProvider implements LLMProvider {
       throw new Error(`Ollama error ${res.status}: ${await res.text()}`)
     }
     const data = (await res.json()) as OllamaChatResponse
-    return data.message?.content ?? ''
+    return {
+      content: data.message?.content ?? '',
+      usage: { input: data.prompt_eval_count ?? 0, output: data.eval_count ?? 0 },
+    }
   }
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<LLMResult> {
-    const content = await this.call(messages, false, opts)
-    return { content, model: this.model }
+    const { content, usage } = await this.call(messages, false, opts)
+    return { content, model: this.model, usage }
   }
 
   async chatStream(
@@ -61,6 +71,7 @@ export class OllamaProvider implements LLMProvider {
     const decoder = new TextDecoder()
     let buf = ''
     let content = ''
+    let usage: { input: number; output: number } | undefined
 
     // Ollama streams newline-delimited JSON objects.
     for (;;) {
@@ -78,6 +89,7 @@ export class OllamaProvider implements LLMProvider {
         } catch {
           continue
         }
+        if (obj.done) usage = { input: obj.prompt_eval_count ?? 0, output: obj.eval_count ?? 0 }
         const think = obj.message?.thinking
         const text = obj.message?.content
         if (think) await onDelta({ thinking: think })
@@ -87,7 +99,7 @@ export class OllamaProvider implements LLMProvider {
         }
       }
     }
-    return { content, model: this.model }
+    return { content, model: this.model, usage }
   }
 
   async proposeBlueprint(
@@ -96,7 +108,7 @@ export class OllamaProvider implements LLMProvider {
     opts: ChatOptions = {},
   ): Promise<unknown> {
     try {
-      const content = await this.call(buildBlueprintMessages(history, current), true, opts)
+      const { content } = await this.call(buildBlueprintMessages(history, current), true, opts)
       return extractJson(content)
     } catch {
       return null

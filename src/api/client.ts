@@ -3,6 +3,7 @@ import type {
   Message,
   SendMessageResponse,
   Session,
+  UsageResponse,
 } from '../../shared/types'
 import type { Blueprint } from '../../shared/blueprint'
 
@@ -33,6 +34,7 @@ export const api = {
     }),
   getBlueprint: (sessionId: string) =>
     http<Blueprint | null>(`/api/sessions/${sessionId}/blueprint`),
+  getUsage: (sessionId: string) => http<UsageResponse>(`/api/sessions/${sessionId}/usage`),
   generateMarkdown: (sessionId: string, stack?: string) =>
     http<{ markdown: string; path: string | null }>(`/api/sessions/${sessionId}/markdown`, {
       method: 'POST',

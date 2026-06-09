@@ -111,7 +111,14 @@ export class MockProvider implements LLMProvider {
       lines.push('', 'Tip: write something like "I want to build an invoice app" and the mock will generate a full set of design data.')
     }
     lines.push('', 'To switch to a real LLM, set CODEV_LLM_PROVIDER to ollama / claude in .env.')
-    return { content: lines.join('\n'), model: this.model }
+    const content = lines.join('\n')
+    // Rough char/4 estimate — the mock has no real tokenizer.
+    const inputChars = messages.reduce((n, m) => n + m.content.length, 0)
+    return {
+      content,
+      model: this.model,
+      usage: { input: Math.ceil(inputChars / 4), output: Math.ceil(content.length / 4) },
+    }
   }
 
   async chatStream(

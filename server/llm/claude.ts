@@ -6,6 +6,7 @@ import { buildBlueprintMessages, extractJson } from './blueprint-prompt'
 interface AnthropicMessagesResponse {
   model?: string
   content?: Array<{ type: string; text?: string }>
+  usage?: { input_tokens?: number; output_tokens?: number }
 }
 
 // Calls the Anthropic Messages API directly via fetch (no SDK dependency).
@@ -16,7 +17,10 @@ export class ClaudeProvider implements LLMProvider {
   readonly model = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
   private readonly key = process.env.ANTHROPIC_API_KEY ?? ''
 
-  private async call(messages: ChatMessage[], maxTokens: number): Promise<{ text: string; model?: string }> {
+  private async call(
+    messages: ChatMessage[],
+    maxTokens: number,
+  ): Promise<{ text: string; model?: string; usage?: { input: number; output: number } }> {
     if (!this.key) {
       throw new Error('ANTHROPIC_API_KEY is not set (CODEV_LLM_PROVIDER=claude)')
     }
@@ -50,12 +54,18 @@ export class ClaudeProvider implements LLMProvider {
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('')
-    return { text, model: data.model }
+    return {
+      text,
+      model: data.model,
+      usage: data.usage
+        ? { input: data.usage.input_tokens ?? 0, output: data.usage.output_tokens ?? 0 }
+        : undefined,
+    }
   }
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<LLMResult> {
-    const { text, model } = await this.call(messages, opts.maxTokens ?? 2048)
-    return { content: text, model: model ?? this.model }
+    const { text, model, usage } = await this.call(messages, opts.maxTokens ?? 2048)
+    return { content: text, model: model ?? this.model, usage }
   }
 
   async chatStream(

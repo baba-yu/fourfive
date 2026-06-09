@@ -8,6 +8,8 @@ export interface LLMResult {
   content: string
   model: string
   raw?: unknown
+  /** Token usage when the provider reports it (Ollama eval counts, Claude usage). */
+  usage?: { input: number; output: number }
 }
 
 export interface ChatOptions {

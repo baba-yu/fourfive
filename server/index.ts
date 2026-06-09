@@ -99,9 +99,11 @@ app.post('/api/sessions/:id/messages', async (c) => {
     .all(sessionId) as ChatMessage[]
 
   let assistantText: string
+  let usage: { input: number; output: number } | undefined
   try {
     const result = await provider.chat(history, opts)
     assistantText = result.content
+    usage = result.usage
     db.prepare(
       'INSERT INTO llm_runs (id, session_id, provider, model, prompt, response, created_at) VALUES (?,?,?,?,?,?,?)',
     ).run(
@@ -123,6 +125,8 @@ app.post('/api/sessions/:id/messages', async (c) => {
     role: 'assistant',
     content: assistantText,
     created_at: nowIso(),
+    input_tokens: usage?.input,
+    output_tokens: usage?.output,
   }
   insertMessage(assistantMsg)
   db.prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(assistantMsg.created_at, sessionId)
@@ -156,6 +160,17 @@ app.post('/api/sessions/:id/messages', async (c) => {
 
 app.get('/api/sessions/:id/blueprint', (c) => {
   return c.json(getLatestBlueprint(c.req.param('id')))
+})
+
+app.get('/api/sessions/:id/usage', (c) => {
+  const id = c.req.param('id')
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(input_tokens), 0) AS input, COALESCE(SUM(output_tokens), 0) AS output
+       FROM messages WHERE session_id = ?`,
+    )
+    .get(id) as { input: number; output: number }
+  return c.json({ input: row.input, output: row.output, total: row.input + row.output })
 })
 
 // Streaming variant used by the browser: SSE stream of
@@ -192,12 +207,14 @@ app.post('/api/sessions/:id/messages/stream', async (c) => {
     await stream.writeSSE({ event: 'user', data: JSON.stringify(userMsg) })
 
     let assistantText = ''
+    let usage: { input: number; output: number } | undefined
     try {
       const result = await provider.chatStream(history, opts, async (d) => {
         if (d.thinking) await stream.writeSSE({ event: 'thinking', data: JSON.stringify(d.thinking) })
         if (d.content) await stream.writeSSE({ event: 'content', data: JSON.stringify(d.content) })
       })
       assistantText = result.content
+      usage = result.usage
     } catch (err) {
       assistantText = `⚠️ LLM call failed (provider=${provider.name}): ${(err as Error).message}`
       await stream.writeSSE({ event: 'content', data: JSON.stringify(assistantText) })
@@ -209,6 +226,8 @@ app.post('/api/sessions/:id/messages/stream', async (c) => {
       role: 'assistant',
       content: assistantText,
       created_at: nowIso(),
+      input_tokens: usage?.input,
+      output_tokens: usage?.output,
     }
     insertMessage(assistantMsg)
     db.prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(assistantMsg.created_at, sessionId)
@@ -249,8 +268,8 @@ app.post('/api/sessions/:id/markdown', async (c) => {
 
 function insertMessage(m: Message): void {
   db.prepare(
-    'INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?,?,?,?,?)',
-  ).run(m.id, m.session_id, m.role, m.content, m.created_at)
+    'INSERT INTO messages (id, session_id, role, content, created_at, input_tokens, output_tokens) VALUES (?,?,?,?,?,?,?)',
+  ).run(m.id, m.session_id, m.role, m.content, m.created_at, m.input_tokens ?? null, m.output_tokens ?? null)
 }
 
 const port = Number(process.env.PORT ?? 8787)

@@ -23,6 +23,8 @@ export interface Message {
   role: ChatRole
   content: string
   created_at: string
+  input_tokens?: number | null
+  output_tokens?: number | null
 }
 
 export interface TemporaryApp {
@@ -59,4 +61,10 @@ export interface SendMessageResponse {
   userMessage: Message
   assistantMessage: Message
   blueprint: Blueprint | null
+}
+
+export interface UsageResponse {
+  input: number
+  output: number
+  total: number
 }

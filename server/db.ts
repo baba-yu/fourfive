@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS messages (
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   role       TEXT NOT NULL,
   content    TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  input_tokens  INTEGER,
+  output_tokens INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at);
 
@@ -66,6 +68,13 @@ CREATE TABLE IF NOT EXISTS llm_runs (
   created_at TEXT NOT NULL
 );
 `)
+
+// Migration: add token columns to messages on DBs created before usage tracking.
+{
+  const cols = db.prepare('PRAGMA table_info(messages)').all() as { name: string }[]
+  if (!cols.some((c) => c.name === 'input_tokens')) db.exec('ALTER TABLE messages ADD COLUMN input_tokens INTEGER')
+  if (!cols.some((c) => c.name === 'output_tokens')) db.exec('ALTER TABLE messages ADD COLUMN output_tokens INTEGER')
+}
 
 export function nowIso(): string {
   return new Date().toISOString()
