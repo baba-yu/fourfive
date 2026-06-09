@@ -49,6 +49,11 @@ export interface HealthResponse {
 
 export interface CreateSessionBody {
   title?: string
+  mode?: 'new' | 'compose'
+  /** compose: name of the new composite app (also the session title). */
+  name?: string
+  /** compose: apps the new app depends on; pinned at their current version. */
+  dependencies?: { app_id: string }[]
 }
 
 export interface SendMessageBody {
@@ -67,4 +72,28 @@ export interface UsageResponse {
   input: number
   output: number
   total: number
+}
+
+export interface AppListItem {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  current_version: number
+  updated_at: string
+}
+
+/** One dependency of the current session's app, with its pinned blueprint. */
+export interface DependencyInfo {
+  app_id: string
+  name: string
+  slug: string
+  pinned_version: number
+  current_version: number
+  blueprint: Blueprint | null
+}
+
+export interface SessionBlueprintResponse {
+  blueprint: Blueprint | null
+  dependencies: DependencyInfo[]
 }
