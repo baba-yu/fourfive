@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import type { Message, Session } from '../../shared/types'
+import type { DependencyInfo, Message, Session } from '../../shared/types'
 import type { Blueprint } from '../../shared/blueprint'
 import { api } from '../api/client'
 
@@ -48,6 +48,8 @@ export const useSessionStore = defineStore('session', () => {
   const sending = ref(false)
   const provider = ref('…')
   const blueprint = ref<Blueprint | null>(null)
+  const dependencies = ref<DependencyInfo[]>([])
+  const showNewSessionModal = ref(false)
   const usage = ref({ input: 0, output: 0, total: 0 })
 
   // LLM knobs (per message)
@@ -149,16 +151,36 @@ export const useSessionStore = defineStore('session', () => {
 
   async function newSession() {
     const s = await api.createSession()
+    showNewSessionModal.value = false
     await refreshSessions()
     await openSession(s)
+  }
+
+  async function composeSession(name: string, appIds: string[]) {
+    const s = await api.createComposeSession(name, appIds)
+    showNewSessionModal.value = false
+    await refreshSessions()
+    await openSession(s)
+  }
+
+  /** Move a dependency's pin to its latest version and refresh the merged view. */
+  async function bumpDependency(dep: DependencyInfo) {
+    const appId = current.value?.app_id
+    if (!appId || dep.current_version <= dep.pinned_version) return
+    await api.updateDependencyPin(appId, dep.app_id, dep.current_version)
+    const res = await api.getBlueprint(current.value!.id)
+    blueprint.value = res.blueprint
+    dependencies.value = res.dependencies
   }
 
   async function openSession(s: Session) {
     current.value = s
     activeFieldId.value = null
     messages.value = await api.getMessages(s.id)
-    blueprint.value = await api.getBlueprint(s.id)
-    softwareStack.value = blueprint.value?.software_stack ?? ''
+    const res = await api.getBlueprint(s.id)
+    blueprint.value = res.blueprint
+    dependencies.value = res.dependencies
+    softwareStack.value = res.blueprint?.software_stack ?? ''
     await refreshUsage()
   }
 
@@ -285,6 +307,8 @@ export const useSessionStore = defineStore('session', () => {
     sending,
     provider,
     blueprint,
+    dependencies,
+    showNewSessionModal,
     thinking,
     maxTokensOn,
     maxTokens,
@@ -300,6 +324,8 @@ export const useSessionStore = defineStore('session', () => {
     init,
     refreshSessions,
     newSession,
+    composeSession,
+    bumpDependency,
     openSession,
     send,
     setThinking,
