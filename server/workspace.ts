@@ -107,9 +107,13 @@ export function saveBlueprint(sessionId: string, bp: Blueprint): { slug: string;
     `INSERT INTO app_versions (id, app_id, version_number, blueprint_path, output_md_path, created_at)
      VALUES (?,?,?,?,?,?)`,
   ).run(randomUUID(), app.id, version, rel(blueprintPath), null, ts)
+  // The composite app's name is user-specified at compose time — never let the
+  // LLM-derived blueprint name overwrite it. Lazily created apps keep tracking
+  // the blueprint's name as before.
+  const isComposite = !!db.prepare('SELECT 1 FROM app_dependencies WHERE app_id = ?').get(app.id)
   db.prepare('UPDATE temporary_apps SET current_version = ?, name = ?, description = ?, updated_at = ? WHERE id = ?').run(
     version,
-    bp.app.name,
+    isComposite ? app.name : bp.app.name,
     bp.app.description ?? null,
     ts,
     app.id,

@@ -4,8 +4,8 @@ const BASE = process.env.BASE ?? 'http://localhost:8787'
 const sessions = await (await fetch(`${BASE}/api/sessions`)).json()
 let sid = null
 for (const s of sessions) {
-  const bp = await (await fetch(`${BASE}/api/sessions/${s.id}/blueprint`)).json()
-  if (bp) {
+  const data = await (await fetch(`${BASE}/api/sessions/${s.id}/blueprint`)).json()
+  if (data.blueprint) {
     sid = s.id
     break
   }

@@ -140,4 +140,20 @@ if (badCompose.status !== 400) {
 }
 console.log('compose  : pin + validation OK')
 
+// First blueprint in a composed session must NOT overwrite the user-chosen app name.
+const sent2 = await postJson(`/api/sessions/${composed.id}/messages`, {
+  content: 'Now add an invoice portal on top.',
+})
+if (!sent2.blueprint) {
+  console.error('SMOKE FAIL: composed session should get a blueprint from the invoice message')
+  process.exit(1)
+}
+const apps2 = await (await fetch(`${BASE}/api/apps`)).json()
+const compositeApp = apps2.find((a) => a.id === composed.app_id)
+if (!compositeApp || compositeApp.name !== 'Composite Smoke App' || compositeApp.current_version !== 1) {
+  console.error('SMOKE FAIL: composite app name/version wrong after first blueprint', JSON.stringify(compositeApp))
+  process.exit(1)
+}
+console.log('composite: name preserved, v1 OK')
+
 console.log('SMOKE OK')

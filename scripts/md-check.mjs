@@ -7,7 +7,8 @@ const sessions = await (await fetch(`${BASE}/api/sessions`)).json()
 let target = null
 let fallback = null
 for (const s of sessions) {
-  const bp = await (await fetch(`${BASE}/api/sessions/${s.id}/blueprint`)).json()
+  const data = await (await fetch(`${BASE}/api/sessions/${s.id}/blueprint`)).json()
+  const bp = data.blueprint
   if (bp) {
     fallback ??= { s, bp }
     if (bp.state_transitions?.length) {
