@@ -76,7 +76,7 @@ watch(
         <option v-for="s in store.sessions" :key="s.id" :value="s.id">{{ s.title }}</option>
       </select>
       <button class="btn" :disabled="editing || !store.current" title="Rename session" @click="startRename">✎</button>
-      <button class="btn" @click="store.newSession()">+ New</button>
+      <button class="btn" @click="store.showNewSessionModal = true">+ New</button>
       <button
         class="btn"
         :disabled="!store.blueprint || store.markdownLoading"
