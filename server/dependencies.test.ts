@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeDb, seedApp } from './test-helpers'
-import { listComposableApps, getDependencies, addDependency, DependencyError } from './dependencies'
+import { listComposableApps, getDependencies, addDependency, updateDependencyPin, DependencyError } from './dependencies'
 
 describe('listComposableApps', () => {
   it('returns only apps with at least one saved version, newest first', () => {
@@ -71,11 +71,12 @@ describe('addDependency', () => {
   it('rejects an unknown app', () => {
     const db = twoApps()
     expect(() => addDependency(db, 'nope', 'a1', 1)).toThrow(DependencyError)
+    expect(() => addDependency(db, 'nope', 'a1', 1)).toThrow(/unknown app: nope/)
   })
 
   it('rejects an unknown dependency app', () => {
     const db = twoApps()
-    expect(() => addDependency(db, 'a2', 'nope', 1)).toThrow(DependencyError)
+    expect(() => addDependency(db, 'a2', 'nope', 1)).toThrow(/unknown dependency app: nope/)
   })
 
   it('rejects a pinned version that does not exist', () => {
@@ -106,5 +107,44 @@ describe('addDependency', () => {
     const db = twoApps()
     addDependency(db, 'a2', 'a1', 1)
     expect(() => addDependency(db, 'a2', 'a1', 2)).toThrow(/already/)
+  })
+
+  it('accepts a legal diamond (two apps sharing a dependency, then joined)', () => {
+    const db = makeDb()
+    seedApp(db, { id: 'a1', name: 'Left', slug: 'left', versions: 1 })
+    seedApp(db, { id: 'a2', name: 'Right', slug: 'right', versions: 1 })
+    seedApp(db, { id: 'a3', name: 'Base', slug: 'base', versions: 1 })
+    seedApp(db, { id: 'top', name: 'Top', slug: 'top', versions: 1 })
+    addDependency(db, 'a1', 'a3', 1) // left → base
+    addDependency(db, 'a2', 'a3', 1) // right → base
+    addDependency(db, 'top', 'a1', 1) // top → left
+    expect(() => addDependency(db, 'top', 'a2', 1)).not.toThrow() // top → right closes the diamond; legal
+  })
+})
+
+describe('updateDependencyPin', () => {
+  function withDep() {
+    const db = makeDb()
+    seedApp(db, { id: 'a1', name: 'Inventory', slug: 'inventory', versions: 3 })
+    seedApp(db, { id: 'a2', name: 'Portal', slug: 'portal', versions: 1 })
+    addDependency(db, 'a2', 'a1', 1)
+    return db
+  }
+
+  it('moves the pin to an existing version', () => {
+    const db = withDep()
+    updateDependencyPin(db, 'a2', 'a1', 3)
+    expect(getDependencies(db, 'a2')[0].pinned_version).toBe(3)
+  })
+
+  it('rejects a version that does not exist', () => {
+    const db = withDep()
+    expect(() => updateDependencyPin(db, 'a2', 'a1', 99)).toThrow(/version 99/)
+  })
+
+  it('rejects a missing dependency row', () => {
+    const db = withDep()
+    expect(() => updateDependencyPin(db, 'a1', 'a2', 1)).toThrow(DependencyError)
+    expect(() => updateDependencyPin(db, 'a1', 'a2', 1)).toThrow(/not found/)
   })
 })

@@ -75,18 +75,19 @@ export function wouldCreateCycle(db: DB, appId: string, dependsOnAppId: string):
 }
 
 export function addDependency(db: DB, appId: string, dependsOnAppId: string, pinnedVersion: number): void {
-  if (!db.prepare('SELECT 1 FROM temporary_apps WHERE id = ?').get(appId)) {
+  const appExists = db.prepare('SELECT 1 FROM temporary_apps WHERE id = ?')
+  if (!appExists.get(appId)) {
     throw new DependencyError(`unknown app: ${appId}`)
   }
-  if (!db.prepare('SELECT 1 FROM temporary_apps WHERE id = ?').get(dependsOnAppId)) {
+  if (!appExists.get(dependsOnAppId)) {
     throw new DependencyError(`unknown dependency app: ${dependsOnAppId}`)
   }
   assertVersionExists(db, dependsOnAppId, pinnedVersion)
   if (wouldCreateCycle(db, appId, dependsOnAppId)) {
-    throw new DependencyError('dependency would create a cycle')
+    throw new DependencyError(`dependency would create a cycle: ${appId} -> ${dependsOnAppId}`)
   }
   if (db.prepare('SELECT 1 FROM app_dependencies WHERE app_id = ? AND depends_on_app_id = ?').get(appId, dependsOnAppId)) {
-    throw new DependencyError('dependency already exists')
+    throw new DependencyError(`dependency already exists: ${appId} -> ${dependsOnAppId}`)
   }
   db.prepare(
     'INSERT INTO app_dependencies (app_id, depends_on_app_id, pinned_version, created_at) VALUES (?, ?, ?, ?)',
@@ -98,4 +99,12 @@ function assertVersionExists(db: DB, appId: string, version: number): void {
     .prepare('SELECT 1 FROM app_versions WHERE app_id = ? AND version_number = ?')
     .get(appId, version)
   if (!row) throw new DependencyError(`version ${version} does not exist for app ${appId}`)
+}
+
+export function updateDependencyPin(db: DB, appId: string, dependsOnAppId: string, version: number): void {
+  assertVersionExists(db, dependsOnAppId, version)
+  const res = db
+    .prepare('UPDATE app_dependencies SET pinned_version = ? WHERE app_id = ? AND depends_on_app_id = ?')
+    .run(version, appId, dependsOnAppId)
+  if (res.changes === 0) throw new DependencyError(`dependency not found: ${appId} -> ${dependsOnAppId}`)
 }
