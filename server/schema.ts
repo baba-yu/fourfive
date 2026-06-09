@@ -56,8 +56,8 @@ CREATE TABLE IF NOT EXISTS llm_runs (
 
 CREATE TABLE IF NOT EXISTS app_dependencies (
   app_id            TEXT NOT NULL REFERENCES temporary_apps(id) ON DELETE CASCADE,
-  depends_on_app_id TEXT NOT NULL REFERENCES temporary_apps(id),
-  pinned_version    INTEGER NOT NULL,
+  depends_on_app_id TEXT NOT NULL REFERENCES temporary_apps(id), -- no ON DELETE: depended-on apps must not be deletable (spec invariant)
+  pinned_version    INTEGER NOT NULL, -- app_versions.version_number of the dependency
   created_at        TEXT NOT NULL,
   PRIMARY KEY (app_id, depends_on_app_id)
 );
