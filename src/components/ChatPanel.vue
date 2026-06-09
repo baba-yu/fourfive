@@ -9,6 +9,21 @@ const listEl = ref<HTMLElement | null>(null)
 // Per-completed-message expand state for the thinking box (collapsed default).
 const openThinking = ref<Record<string, boolean>>({})
 
+// Inline rename of the current session title.
+const editing = ref(false)
+const editTitle = ref('')
+const editEl = ref<HTMLInputElement | null>(null)
+function startRename() {
+  editTitle.value = store.current?.title ?? ''
+  editing.value = true
+  void nextTick(() => editEl.value?.focus())
+}
+async function commitRename() {
+  if (!editing.value) return
+  editing.value = false
+  await store.renameSession(editTitle.value)
+}
+
 async function submit() {
   const text = input.value
   if (!text.trim() || store.sending) return
@@ -48,9 +63,19 @@ watch(
 <template>
   <section class="chat">
     <header class="chat__bar">
-      <select class="chat__session" :value="store.current?.id ?? ''" @change="onSelect">
+      <input
+        v-if="editing"
+        ref="editEl"
+        v-model="editTitle"
+        class="chat__session"
+        @keydown.enter="commitRename"
+        @keydown.esc="editing = false"
+        @blur="commitRename"
+      />
+      <select v-else class="chat__session" :value="store.current?.id ?? ''" @change="onSelect">
         <option v-for="s in store.sessions" :key="s.id" :value="s.id">{{ s.title }}</option>
       </select>
+      <button class="btn" :disabled="editing || !store.current" title="Rename session" @click="startRename">✎</button>
       <button class="btn" @click="store.newSession()">+ New</button>
       <button
         class="btn"

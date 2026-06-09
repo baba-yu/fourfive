@@ -23,6 +23,8 @@ export const api = {
   listSessions: () => http<Session[]>('/api/sessions'),
   createSession: (title?: string) =>
     http<Session>('/api/sessions', { method: 'POST', body: JSON.stringify({ title }) }),
+  renameSession: (sessionId: string, title: string) =>
+    http<Session>(`/api/sessions/${sessionId}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   getMessages: (sessionId: string) => http<Message[]>(`/api/sessions/${sessionId}/messages`),
   sendMessage: (sessionId: string, content: string, think?: boolean, maxTokens?: number) =>
     http<SendMessageResponse>(`/api/sessions/${sessionId}/messages`, {

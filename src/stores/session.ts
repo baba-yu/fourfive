@@ -209,6 +209,9 @@ export const useSessionStore = defineStore('session', () => {
         },
       )
       await refreshSessions()
+      // Pick up server-side auto-naming (first blueprint names the session).
+      const fresh = sessions.value.find((s) => s.id === sid)
+      if (fresh && current.value) current.value.title = fresh.title
     } catch (e) {
       messages.value.push({
         id: `err-${Date.now()}`,
@@ -255,6 +258,14 @@ export const useSessionStore = defineStore('session', () => {
     showMarkdown.value = false
   }
 
+  async function renameSession(title: string) {
+    const t = title.trim()
+    if (!current.value || !t || t === current.value.title) return
+    const updated = await api.renameSession(current.value.id, t)
+    current.value.title = updated.title
+    await refreshSessions()
+  }
+
   return {
     sessions,
     current,
@@ -285,5 +296,6 @@ export const useSessionStore = defineStore('session', () => {
     setActiveField,
     generateMarkdown,
     closeMarkdown,
+    renameSession,
   }
 })

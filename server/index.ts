@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { randomUUID } from 'node:crypto'
-import { db, nowIso } from './db'
+import { db, nowIso, DEFAULT_SESSION_TITLE } from './db'
 import { getProvider } from './llm/provider'
 import { validateBlueprint } from './blueprint-schema'
 import { saveBlueprint, getLatestBlueprint, saveMarkdown, setSoftwareStack } from './workspace'
@@ -37,12 +37,24 @@ app.post('/api/sessions', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { title?: string }
   const id = randomUUID()
   const ts = nowIso()
-  const title = body.title?.trim() || 'New session'
+  const title = body.title?.trim() || DEFAULT_SESSION_TITLE
   db.prepare(
     'INSERT INTO sessions (id, app_id, title, created_at, updated_at) VALUES (?, NULL, ?, ?, ?)',
   ).run(id, title, ts, ts)
   const row = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id)
   return c.json(row, 201)
+})
+
+app.patch('/api/sessions/:id', async (c) => {
+  const id = c.req.param('id')
+  const body = (await c.req.json().catch(() => ({}))) as { title?: string }
+  const title = (body.title ?? '').trim()
+  if (!title) return c.json({ error: 'title is required' }, 400)
+  const res = db
+    .prepare('UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?')
+    .run(title, nowIso(), id)
+  if (res.changes === 0) return c.json({ error: 'session not found' }, 404)
+  return c.json(db.prepare('SELECT * FROM sessions WHERE id = ?').get(id))
 })
 
 // --- messages ---

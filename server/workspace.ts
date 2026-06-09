@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { resolve, join, relative } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { db, nowIso, WORKSPACE_DIR } from './db'
+import { db, nowIso, WORKSPACE_DIR, DEFAULT_SESSION_TITLE } from './db'
 import type { Blueprint } from '../shared/blueprint'
 
 const APPS_DIR = resolve(WORKSPACE_DIR, 'apps')
@@ -80,6 +80,14 @@ export function saveBlueprint(sessionId: string, bp: Blueprint): { slug: string;
        VALUES (?,?,?,?,?,?,?,?)`,
     ).run(id, bp.app.name, slug, bp.app.description ?? null, 0, rel(dir), ts, ts)
     db.prepare('UPDATE sessions SET app_id = ?, updated_at = ? WHERE id = ?').run(id, ts, sessionId)
+    // Auto-name the session after its app on the first blueprint, unless the
+    // user already renamed it (manual title wins).
+    const sess = db.prepare('SELECT title FROM sessions WHERE id = ?').get(sessionId) as
+      | { title: string }
+      | undefined
+    if (sess?.title === DEFAULT_SESSION_TITLE) {
+      db.prepare('UPDATE sessions SET title = ? WHERE id = ?').run(bp.app.name, sessionId)
+    }
     writeFileSync(
       join(dir, 'app.json'),
       JSON.stringify({ id, name: bp.app.name, slug, created_at: ts }, null, 2),

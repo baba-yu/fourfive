@@ -70,3 +70,8 @@ CREATE TABLE IF NOT EXISTS llm_runs (
 export function nowIso(): string {
   return new Date().toISOString()
 }
+
+// Default title for a freshly-created session. Treated as "unnamed": the first
+// blueprint auto-names the session after its app (see server/workspace.ts),
+// unless the user has already renamed it.
+export const DEFAULT_SESSION_TITLE = 'New session'
