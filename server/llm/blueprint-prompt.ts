@@ -48,6 +48,39 @@ export function buildBlueprintMessages(
   ]
 }
 
+export interface DependencyContextInput {
+  name: string
+  slug: string
+  pinned_version: number
+  blueprint: Blueprint | null
+}
+
+/**
+ * Read-only context describing the apps this session's app composes. Prepended
+ * to the LLM history as a system message for BOTH chat and blueprint
+ * generation, so the model references dependency entities/APIs instead of
+ * redefining them. Returns null when there is nothing to include.
+ */
+export function buildDependencyContext(deps: DependencyContextInput[]): ChatMessage | null {
+  const withBp = deps.filter((d) => d.blueprint != null)
+  if (withBp.length === 0) return null
+  const sections = withBp.map(
+    (d) => `### ${d.name} (namespace: ${d.slug}, pinned v${d.pinned_version})\n${JSON.stringify(d.blueprint)}`,
+  )
+  return {
+    role: 'system',
+    content: [
+      'This app COMPOSES the following existing apps. Their blueprints are READ-ONLY context:',
+      ...sections,
+      [
+        'Rules:',
+        '- Reference their entities/APIs/terms with namespaced notation `<namespace>.<name>` (e.g. `inventory.products`); never redefine them.',
+        "- This app's own blueprint may only contain new screens, glue logic, and entities the integration itself requires.",
+      ].join('\n'),
+    ].join('\n\n'),
+  }
+}
+
 // Tolerant JSON extraction from a model's text response.
 export function extractJson(text: string): unknown {
   const t = text.trim()
