@@ -5,7 +5,11 @@ import { resolve } from 'node:path'
 // FourFive's own metadata lives in a single SQLite file inside the workspace dir.
 // Per-app design artifacts (blueprint.json, erd.mmd, ...) will live in
 // codev-workspace/apps/<slug>/ folders (added in later phases).
-export const WORKSPACE_DIR = resolve(process.cwd(), 'codev-workspace')
+// The ONE allowed absolute path: anchor the workspace to THIS module's location
+// (<project>/server/db.ts -> <project>/codev-workspace), not process.cwd(), so it
+// resolves identically no matter where the server is launched from. Everything
+// persisted (DB path columns) is stored RELATIVE to WORKSPACE_DIR — never absolute.
+export const WORKSPACE_DIR = resolve(import.meta.dirname, '..', 'codev-workspace')
 mkdirSync(WORKSPACE_DIR, { recursive: true })
 
 const DB_PATH = resolve(WORKSPACE_DIR, 'codev.db')
