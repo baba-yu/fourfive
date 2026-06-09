@@ -6,7 +6,9 @@ import type Database from 'better-sqlite3'
 
 type DB = Database.Database
 
-export class DependencyError extends Error {}
+export class DependencyError extends Error {
+  override name = 'DependencyError'
+}
 
 export interface ComposableApp {
   id: string
@@ -48,4 +50,52 @@ export function getDependencies(db: DB, appId: string): DependencyRow[] {
        ORDER BY a.name`,
     )
     .all(appId) as DependencyRow[]
+}
+
+function nowIso(): string {
+  return new Date().toISOString()
+}
+
+/** True if making appId depend on dependsOnAppId would create a cycle. */
+export function wouldCreateCycle(db: DB, appId: string, dependsOnAppId: string): boolean {
+  if (appId === dependsOnAppId) return true
+  const edges = db.prepare('SELECT depends_on_app_id FROM app_dependencies WHERE app_id = ?')
+  const stack = [dependsOnAppId]
+  const seen = new Set<string>()
+  while (stack.length > 0) {
+    const cur = stack.pop()!
+    if (cur === appId) return true
+    if (seen.has(cur)) continue
+    seen.add(cur)
+    for (const row of edges.all(cur) as { depends_on_app_id: string }[]) {
+      stack.push(row.depends_on_app_id)
+    }
+  }
+  return false
+}
+
+export function addDependency(db: DB, appId: string, dependsOnAppId: string, pinnedVersion: number): void {
+  if (!db.prepare('SELECT 1 FROM temporary_apps WHERE id = ?').get(appId)) {
+    throw new DependencyError(`unknown app: ${appId}`)
+  }
+  if (!db.prepare('SELECT 1 FROM temporary_apps WHERE id = ?').get(dependsOnAppId)) {
+    throw new DependencyError(`unknown dependency app: ${dependsOnAppId}`)
+  }
+  assertVersionExists(db, dependsOnAppId, pinnedVersion)
+  if (wouldCreateCycle(db, appId, dependsOnAppId)) {
+    throw new DependencyError('dependency would create a cycle')
+  }
+  if (db.prepare('SELECT 1 FROM app_dependencies WHERE app_id = ? AND depends_on_app_id = ?').get(appId, dependsOnAppId)) {
+    throw new DependencyError('dependency already exists')
+  }
+  db.prepare(
+    'INSERT INTO app_dependencies (app_id, depends_on_app_id, pinned_version, created_at) VALUES (?, ?, ?, ?)',
+  ).run(appId, dependsOnAppId, pinnedVersion, nowIso())
+}
+
+function assertVersionExists(db: DB, appId: string, version: number): void {
+  const row = db
+    .prepare('SELECT 1 FROM app_versions WHERE app_id = ? AND version_number = ?')
+    .get(appId, version)
+  if (!row) throw new DependencyError(`version ${version} does not exist for app ${appId}`)
 }

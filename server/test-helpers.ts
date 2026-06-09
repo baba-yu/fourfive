@@ -1,3 +1,6 @@
+// Shared fixtures for server unit tests. MUST stay importable without side
+// effects: never import ./db here (it opens the real workspace DB) — tests
+// run exclusively against :memory: databases created by makeDb().
 import Database from 'better-sqlite3'
 import { applySchema } from './schema'
 
