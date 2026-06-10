@@ -22,7 +22,7 @@ app", and export everything-but-the-UI as a Markdown blueprint.
 
 - Frontend: Vue 3 + TypeScript + Vite + Pinia
 - Local server: Node.js + Hono (SSE streaming)
-- DB: SQLite (better-sqlite3) — `codev-workspace/codev.db`; design artifacts in `codev-workspace/apps/<slug>/versions/NNN/`
+- DB: SQLite (better-sqlite3) — `workspace/codev.db`; design artifacts in `workspace/apps/<slug>/versions/NNN/`
 - Diagrams: Mermaid (ERD + state diagram), lazy-loaded
 - LLM: `mock` (default, offline) / Ollama / Claude — all via `fetch`, no SDK
 
@@ -83,7 +83,7 @@ src/               Vue frontend (chat + right-pane views)
 shared/            front/server shared types (types, blueprint, mermaid)
 scripts/           dev/ollama start-stop, smoke/verify/check scripts
 docs/              documentation (guides/local-llm.md; changelog/ is gitignored)
-codev-workspace/   SQLite + per-app artifacts (gitignored except .gitkeep)
+workspace/         SQLite + per-app artifacts (gitignored except .gitkeep)
 ```
 
 ## Notes

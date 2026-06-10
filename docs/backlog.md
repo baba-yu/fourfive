@@ -128,7 +128,7 @@ blow the context budget, summarize/excerpt instead of full-JSON inclusion.
 ### BL-14 · Smoke runs pollute the dev workspace DB
 **Type** chore · **Priority** low · **Status** open
 
-`pnpm smoke` writes real rows into `codev-workspace/codev.db` every run (~20
+`pnpm smoke` writes real rows into `workspace/codev.db` every run (~20
 `Invoice App`s + several `Composite Smoke App`s accumulated). Options: point the
 smoke at a throwaway `WORKSPACE_DIR`, or add a reset script. Until then, wipe the
 workspace for a clean slate.

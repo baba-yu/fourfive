@@ -3,9 +3,9 @@ node_modules/
 dist/
 
 # runtime data — keep the folder in git, ignore its contents
-# (codev.db and the generated codev-workspace/apps/<slug>/... live here)
-codev-workspace/*
-!codev-workspace/.gitkeep
+# (codev.db and the generated workspace/apps/<slug>/... live here)
+workspace/*
+!workspace/.gitkeep
 
 # secrets / local config (.env.example IS committed)
 .env
