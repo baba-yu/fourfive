@@ -99,7 +99,7 @@ export class MockProvider implements LLMProvider {
   async chat(messages: ChatMessage[]): Promise<LLMResult> {
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')
     const text = (lastUser?.content ?? '').trim()
-    const looksInvoice = INVOICE_RE.test(messages.map((m) => m.content).join(' '))
+    const looksInvoice = INVOICE_RE.test(messages.filter((m) => m.role !== 'system').map((m) => m.content).join(' '))
     const lines = [
       'This is a mock LLM response (for offline testing with no external connection).',
       '',
@@ -139,7 +139,7 @@ export class MockProvider implements LLMProvider {
   }
 
   async proposeBlueprint(history: ChatMessage[]): Promise<unknown> {
-    const text = history.map((m) => m.content).join(' ')
+    const text = history.filter((m) => m.role !== 'system').map((m) => m.content).join(' ')
     if (INVOICE_RE.test(text)) return INVOICE_BLUEPRINT
     return null
   }

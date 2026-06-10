@@ -2,7 +2,9 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { resolve, join, relative } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { db, nowIso, WORKSPACE_DIR, DEFAULT_SESSION_TITLE } from './db'
+import { addDependency, getDependencies, DependencyError } from './dependencies'
 import type { Blueprint } from '../shared/blueprint'
+import type { SessionBlueprintResponse } from '../shared/types'
 
 const APPS_DIR = resolve(WORKSPACE_DIR, 'apps')
 
@@ -105,9 +107,13 @@ export function saveBlueprint(sessionId: string, bp: Blueprint): { slug: string;
     `INSERT INTO app_versions (id, app_id, version_number, blueprint_path, output_md_path, created_at)
      VALUES (?,?,?,?,?,?)`,
   ).run(randomUUID(), app.id, version, rel(blueprintPath), null, ts)
+  // The composite app's name is user-specified at compose time — never let the
+  // LLM-derived blueprint name overwrite it. Lazily created apps keep tracking
+  // the blueprint's name as before.
+  const isComposite = !!db.prepare('SELECT 1 FROM app_dependencies WHERE app_id = ?').get(app.id)
   db.prepare('UPDATE temporary_apps SET current_version = ?, name = ?, description = ?, updated_at = ? WHERE id = ?').run(
     version,
-    bp.app.name,
+    isComposite ? app.name : bp.app.name,
     bp.app.description ?? null,
     ts,
     app.id,
@@ -116,17 +122,23 @@ export function saveBlueprint(sessionId: string, bp: Blueprint): { slug: string;
   return { slug: app.slug, version }
 }
 
-/** Read the latest persisted blueprint for the session's app, or null. */
-export function getLatestBlueprint(sessionId: string): Blueprint | null {
-  const app = getSessionApp(sessionId)
-  if (!app || app.current_version < 1) return null
-  const file = join(appDir(app.slug), 'versions', pad(app.current_version), 'blueprint.json')
+/** Read one persisted blueprint version for an app, or null. */
+export function readBlueprintVersion(slug: string, version: number): Blueprint | null {
+  if (version < 1) return null
+  const file = join(appDir(slug), 'versions', pad(version), 'blueprint.json')
   if (!existsSync(file)) return null
   try {
     return JSON.parse(readFileSync(file, 'utf8')) as Blueprint
   } catch {
     return null
   }
+}
+
+/** Read the latest persisted blueprint for the session's app, or null. */
+export function getLatestBlueprint(sessionId: string): Blueprint | null {
+  const app = getSessionApp(sessionId)
+  if (!app) return null
+  return readBlueprintVersion(app.slug, app.current_version)
 }
 
 /** Render destination: save Markdown into the session's current version folder. */
@@ -157,4 +169,54 @@ export function setSoftwareStack(sessionId: string, stack: string): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Create the composite app row up front (version 0, no blueprint yet) with its
+ * dependencies pinned at each target's current version. Created eagerly —
+ * unlike the lazy first-blueprint path — because dependency rows need the
+ * parent app_id. The first blueprint save then takes the normal version+1 path.
+ */
+export function createComposedApp(name: string, dependencyAppIds: string[]): { id: string; slug: string } {
+  const ts = nowIso()
+  const id = randomUUID()
+  const slug = uniqueSlug(name)
+  const dir = appDir(slug)
+  mkdirSync(join(dir, 'versions'), { recursive: true })
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO temporary_apps (id, name, slug, description, current_version, workspace_path, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?)`,
+    ).run(id, name, slug, null, 0, rel(dir), ts, ts)
+    for (const depId of dependencyAppIds) {
+      const dep = db.prepare('SELECT current_version FROM temporary_apps WHERE id = ?').get(depId) as
+        | { current_version: number }
+        | undefined
+      if (!dep) throw new DependencyError(`unknown dependency app: ${depId}`)
+      if (dep.current_version < 1) {
+        throw new DependencyError(`app ${depId} has no saved blueprint to compose`)
+      }
+      addDependency(db, id, depId, dep.current_version)
+    }
+  })()
+  // app.json is cosmetic metadata; the DB is authoritative — written outside the transaction on purpose.
+  writeFileSync(join(dir, 'app.json'), JSON.stringify({ id, name, slug, created_at: ts }, null, 2))
+  return { id, slug }
+}
+
+/** Own blueprint plus each dependency's pinned blueprint, for the API and LLM context. */
+export function getBlueprintWithDependencies(sessionId: string): SessionBlueprintResponse {
+  const app = getSessionApp(sessionId)
+  const blueprint = app ? readBlueprintVersion(app.slug, app.current_version) : null
+  const dependencies = app
+    ? getDependencies(db, app.id).map((d) => ({
+        app_id: d.depends_on_app_id,
+        name: d.name,
+        slug: d.slug,
+        pinned_version: d.pinned_version,
+        current_version: d.current_version,
+        blueprint: readBlueprintVersion(d.slug, d.pinned_version),
+      }))
+    : []
+  return { blueprint, dependencies }
 }

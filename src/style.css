@@ -769,3 +769,136 @@ body {
     visibility: hidden;
   }
 }
+
+/* --- New-session modal --- */
+.modal__box--narrow {
+  max-width: 480px;
+}
+.newsess {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.newsess__choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.newsess__choice:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.newsess__choice:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.newsess__choice span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.newsess__label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.newsess__name {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+}
+.newsess__name:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.newsess__apps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.newsess__app {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.newsess__app-name {
+  flex: 1;
+}
+.newsess__app-meta {
+  font-size: 11px;
+  opacity: 0.6;
+}
+.newsess__error {
+  color: #f87171;
+  font-size: 12px;
+  margin: 0;
+}
+.newsess__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* --- Dependency strip + read-only dependency sections --- */
+.temp__deps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.temp__deps-label {
+  color: var(--text-dim);
+}
+.dep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.dep-chip__bump {
+  border: none;
+  background: var(--accent);
+  color: #000;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.depsec {
+  margin-top: 18px;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  opacity: 0.8;
+}
+.depsec__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.depsec__name {
+  font-weight: 600;
+}
+.depsec__ns {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: auto;
+}

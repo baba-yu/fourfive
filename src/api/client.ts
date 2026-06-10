@@ -1,11 +1,12 @@
 import type {
+  AppListItem,
   HealthResponse,
   Message,
   SendMessageResponse,
   Session,
+  SessionBlueprintResponse,
   UsageResponse,
 } from '../../shared/types'
-import type { Blueprint } from '../../shared/blueprint'
 
 async function http<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -33,7 +34,18 @@ export const api = {
       body: JSON.stringify({ content, think, maxTokens }),
     }),
   getBlueprint: (sessionId: string) =>
-    http<Blueprint | null>(`/api/sessions/${sessionId}/blueprint`),
+    http<SessionBlueprintResponse>(`/api/sessions/${sessionId}/blueprint`),
+  listApps: () => http<AppListItem[]>('/api/apps'),
+  createComposeSession: (name: string, appIds: string[]) =>
+    http<Session>('/api/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'compose', name, dependencies: appIds.map((app_id) => ({ app_id })) }),
+    }),
+  updateDependencyPin: (appId: string, depId: string, version: number) =>
+    http<{ ok: boolean }>(`/api/apps/${appId}/dependencies/${depId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ version }),
+    }),
   getUsage: (sessionId: string) => http<UsageResponse>(`/api/sessions/${sessionId}/usage`),
   generateMarkdown: (sessionId: string, stack?: string) =>
     http<{ markdown: string; path: string | null }>(`/api/sessions/${sessionId}/markdown`, {

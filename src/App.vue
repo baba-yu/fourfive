@@ -4,6 +4,7 @@ import { useSessionStore } from './stores/session'
 import ChatPanel from './components/ChatPanel.vue'
 import TempAppPanel from './components/TempAppPanel.vue'
 import MarkdownModal from './components/MarkdownModal.vue'
+import NewSessionModal from './components/NewSessionModal.vue'
 
 const store = useSessionStore()
 const isRealLlm = computed(() => store.provider === 'ollama' || store.provider === 'claude')
@@ -67,5 +68,6 @@ onMounted(() => store.init())
       <TempAppPanel class="panes__right" />
     </main>
     <MarkdownModal />
+    <NewSessionModal />
   </div>
 </template>

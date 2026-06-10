@@ -1,0 +1,2 @@
+# Keeps workspace/ in the repo. Its contents (codev.db, apps/<slug>/...)
+# are runtime data and gitignored; the app recreates them on first run.

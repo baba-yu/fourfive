@@ -12,8 +12,10 @@ import { streamSSE } from 'hono/streaming'
 import { randomUUID } from 'node:crypto'
 import { db, nowIso, DEFAULT_SESSION_TITLE } from './db'
 import { getProvider } from './llm/provider'
+import { buildDependencyContext } from './llm/blueprint-prompt'
 import { validateBlueprint } from './blueprint-schema'
-import { saveBlueprint, getLatestBlueprint, saveMarkdown, setSoftwareStack } from './workspace'
+import { saveBlueprint, getLatestBlueprint, saveMarkdown, setSoftwareStack, createComposedApp, getBlueprintWithDependencies } from './workspace'
+import { listComposableApps, updateDependencyPin, DependencyError } from './dependencies'
 import { renderBlueprintMarkdown } from './markdown'
 import type { ChatMessage, Message } from '../shared/types'
 
@@ -34,9 +36,43 @@ app.get('/api/sessions', (c) => {
 })
 
 app.post('/api/sessions', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { title?: string }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    title?: string
+    mode?: 'new' | 'compose'
+    name?: string
+    dependencies?: { app_id: string }[]
+  }
   const id = randomUUID()
   const ts = nowIso()
+
+  if (body.mode === 'compose') {
+    const name = body.name?.trim()
+    if (body.dependencies !== undefined && !Array.isArray(body.dependencies)) {
+      return c.json({ error: 'dependencies must be an array' }, 400)
+    }
+    const deps = [
+      ...new Set(
+        (body.dependencies ?? [])
+          .map((d) => (typeof d?.app_id === 'string' ? d.app_id : ''))
+          .filter(Boolean),
+      ),
+    ]
+    if (!name) return c.json({ error: 'name is required for compose' }, 400)
+    if (name.length > 200) return c.json({ error: 'name is too long (max 200 chars)' }, 400)
+    if (deps.length === 0) return c.json({ error: 'compose requires at least one dependency' }, 400)
+    let appRef: { id: string; slug: string }
+    try {
+      appRef = createComposedApp(name, deps)
+    } catch (err) {
+      if (err instanceof DependencyError) return c.json({ error: err.message }, 400)
+      throw err
+    }
+    db.prepare(
+      'INSERT INTO sessions (id, app_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(id, appRef.id, name, ts, ts)
+    return c.json(db.prepare('SELECT * FROM sessions WHERE id = ?').get(id), 201)
+  }
+
   const title = body.title?.trim() || DEFAULT_SESSION_TITLE
   db.prepare(
     'INSERT INTO sessions (id, app_id, title, created_at, updated_at) VALUES (?, NULL, ?, ?, ?)',
@@ -97,11 +133,15 @@ app.post('/api/sessions/:id/messages', async (c) => {
   const history = db
     .prepare('SELECT role, content FROM messages WHERE session_id = ? ORDER BY created_at ASC')
     .all(sessionId) as ChatMessage[]
+  // Dependency context is rebuilt per turn (not persisted) so it always
+  // reflects the current pinned blueprints.
+  const depCtx = buildDependencyContext(getBlueprintWithDependencies(sessionId).dependencies)
+  const llmHistory: ChatMessage[] = depCtx ? [depCtx, ...history] : history
 
   let assistantText: string
   let usage: { input: number; output: number } | undefined
   try {
-    const result = await provider.chat(history, opts)
+    const result = await provider.chat(llmHistory, opts)
     assistantText = result.content
     usage = result.usage
     db.prepare(
@@ -111,7 +151,7 @@ app.post('/api/sessions/:id/messages', async (c) => {
       sessionId,
       provider.name,
       result.model,
-      JSON.stringify(history),
+      JSON.stringify(llmHistory),
       assistantText,
       nowIso(),
     )
@@ -135,7 +175,7 @@ app.post('/api/sessions/:id/messages', async (c) => {
   // here never break the chat — the blueprint is best-effort.
   let blueprint = getLatestBlueprint(sessionId)
   try {
-    const fullHistory: ChatMessage[] = [...history, { role: 'assistant', content: assistantText }]
+    const fullHistory: ChatMessage[] = [...llmHistory, { role: 'assistant', content: assistantText }]
     const proposed = await provider.proposeBlueprint(fullHistory, blueprint, opts)
     if (proposed != null) {
       const result = validateBlueprint(proposed)
@@ -159,7 +199,25 @@ app.post('/api/sessions/:id/messages', async (c) => {
 })
 
 app.get('/api/sessions/:id/blueprint', (c) => {
-  return c.json(getLatestBlueprint(c.req.param('id')))
+  return c.json(getBlueprintWithDependencies(c.req.param('id')))
+})
+
+// --- apps & dependencies ---
+
+app.get('/api/apps', (c) => c.json(listComposableApps(db)))
+
+app.patch('/api/apps/:id/dependencies/:depId', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { version?: number }
+  if (typeof body.version !== 'number' || !Number.isInteger(body.version)) {
+    return c.json({ error: 'version must be an integer' }, 400)
+  }
+  try {
+    updateDependencyPin(db, c.req.param('id'), c.req.param('depId'), body.version)
+  } catch (err) {
+    if (err instanceof DependencyError) return c.json({ error: err.message }, 400)
+    throw err
+  }
+  return c.json({ ok: true })
 })
 
 app.get('/api/sessions/:id/usage', (c) => {
@@ -202,6 +260,8 @@ app.post('/api/sessions/:id/messages/stream', async (c) => {
   const history = db
     .prepare('SELECT role, content FROM messages WHERE session_id = ? ORDER BY created_at ASC')
     .all(sessionId) as ChatMessage[]
+  const depCtx = buildDependencyContext(getBlueprintWithDependencies(sessionId).dependencies)
+  const llmHistory: ChatMessage[] = depCtx ? [depCtx, ...history] : history
 
   return streamSSE(c, async (stream) => {
     await stream.writeSSE({ event: 'user', data: JSON.stringify(userMsg) })
@@ -209,7 +269,7 @@ app.post('/api/sessions/:id/messages/stream', async (c) => {
     let assistantText = ''
     let usage: { input: number; output: number } | undefined
     try {
-      const result = await provider.chatStream(history, opts, async (d) => {
+      const result = await provider.chatStream(llmHistory, opts, async (d) => {
         if (d.thinking) await stream.writeSSE({ event: 'thinking', data: JSON.stringify(d.thinking) })
         if (d.content) await stream.writeSSE({ event: 'content', data: JSON.stringify(d.content) })
       })
@@ -235,7 +295,7 @@ app.post('/api/sessions/:id/messages/stream', async (c) => {
 
     let blueprint = getLatestBlueprint(sessionId)
     try {
-      const fullHistory: ChatMessage[] = [...history, { role: 'assistant', content: assistantText }]
+      const fullHistory: ChatMessage[] = [...llmHistory, { role: 'assistant', content: assistantText }]
       const proposed = await provider.proposeBlueprint(fullHistory, blueprint, opts)
       if (proposed != null) {
         const valid = validateBlueprint(proposed)
